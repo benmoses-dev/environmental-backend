@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "54320:5432"
+    volumes:
+      - tsdb-data:/var/lib/postgresql/data
+      - ./docker/db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: environmental-backend
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      MQTT_BROKER: ${MQTT_BROKER}
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASS: ${MQTT_PASS}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID}
+      MQTT_TOPIC: ${MQTT_TOPIC}
+      MQTT_QOS: ${MQTT_QOS}
+      INSERT_TIMEOUT: ${INSERT_TIMEOUT}
+    restart: unless-stopped
+    networks:
+      - environet
+
+volumes:
+  tsdb-data:
+
+networks:
+  environet:
+    driver: bridge

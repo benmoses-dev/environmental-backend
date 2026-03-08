@@ -1,7 +1,5 @@
 # IoT Sensor Architecture
 
-## 1. Entities
-
 - **Device**
   - Unique identifier
   - Assigned to a **Location**
@@ -35,53 +33,9 @@
 
 ---
 
-## 2. Database Schema
-
-```sql
--- Locations
-CREATE TABLE locations (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- Devices
-CREATE TABLE devices (
-    id SERIAL PRIMARY KEY,
-    identifier TEXT UNIQUE NOT NULL,
-    location_id INT REFERENCES locations(id)
-);
-
--- Sensors
-CREATE TABLE sensors (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- Reading types
-CREATE TYPE reading_type_enum AS ENUM ('temperature','humidity','pressure','voc','co2');
-
-CREATE TABLE reading_types (
-    id SERIAL PRIMARY KEY,
-    name reading_type_enum NOT NULL
-);
-
--- Device-Sensor-Reading mapping
-CREATE TABLE device_sensor_readings (
-    id SERIAL PRIMARY KEY,
-    device_id INT REFERENCES devices(device_id),
-    sensor_id INT REFERENCES sensors(sensor_id),
-    readingtype_id INT REFERENCES reading_types(readingtype_id),
-    UNIQUE(device_id, readingtype_id)
-);
-
--- Sensor Data (tall table)
-CREATE TABLE sensor_data (
-    time TIMESTAMPTZ NOT NULL,
-    device_id INT NOT NULL REFERENCES devices(device_id),
-    location_id INT NOT NULL REFERENCES locations(location_id),
-    sensor_id INT NOT NULL REFERENCES sensors(sensor_id),
-    readingtype_id INT NOT NULL REFERENCES reading_types(readingtype_id),
-    value DOUBLE PRECISION NOT NULL
-);
-
-SELECT create_hypertable('sensor_data','time');
+```mermaid
+flowchart TD
+    ESP32[ESP32 / Other IoT Device] -->|MQTT Publish| MQTT_Broker[MQTT Broker]
+    MQTT_Broker --> GoSubscriber[Go Subscriber]
+    GoSubscriber -->|Lookup device_id, location_id, sensor_id, readingtype_id| DB_TimescaleDB[TimescaleDB SensorData]
+```
