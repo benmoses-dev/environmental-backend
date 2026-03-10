@@ -2,6 +2,13 @@ package services
 
 import "time"
 
+type SensorMessage struct {
+	Time            time.Time
+	Value           float64
+	ReadingTypeName string
+	Identifier      string
+}
+
 type Device struct {
 	ID         int
 	Identifier string
@@ -37,4 +44,3 @@ type SensorData struct {
 	ReadingTypeID int
 	Value         float64
 }
-

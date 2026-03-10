@@ -16,6 +16,7 @@ type Config struct {
 	MQTTTopic     string
 	MQTTQoS       byte
 	InsertTimeout time.Duration
+	DBWorkers     int
 }
 
 func LoadConfig() *Config {
@@ -28,6 +29,7 @@ func LoadConfig() *Config {
 		MQTTTopic:     getEnv("MQTT_TOPIC", "device/+/+"),
 		MQTTQoS:       byte(getEnvAsInt("MQTT_QOS", 2)),
 		InsertTimeout: getEnvAsDuration("INSERT_TIMEOUT", 5*time.Second),
+		DBWorkers:     getEnvAsInt("DB_WORKERS", 5),
 	}
 	return cfg
 }

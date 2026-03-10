@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -10,16 +11,19 @@ import (
 
 type PostgresService struct {
 	pool *pgxpool.Pool
+	cfg  *Config
 }
 
 func NewPostgresService(cfg *Config) *PostgresService {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InsertTimeout)
+	defer cancel()
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 	return &PostgresService{
 		pool: pool,
+		cfg:  cfg,
 	}
 }
 
@@ -27,7 +31,55 @@ func (s *PostgresService) Close() {
 	s.pool.Close()
 }
 
-func (s *PostgresService) GetDevice(ctx context.Context, identifier string) (int, int, error) {
+func (s *PostgresService) Start(ctx context.Context, messages <-chan *SensorMessage, wg *sync.WaitGroup) {
+	numWorkers := s.cfg.DBWorkers
+	wg.Add(numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case msg, ok := <-messages:
+					if !ok {
+						return
+					}
+					s.handleMessage(msg)
+				}
+			}
+		}()
+	}
+}
+
+func (s *PostgresService) handleMessage(m *SensorMessage) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
+	defer cancel()
+	deviceID, locationID, err := s.getDevice(ctx, m.Identifier)
+	if err != nil {
+		log.Println("device lookup failed:", err)
+		return
+	}
+	sensorID, readingTypeID, err := s.getSensorForReading(ctx, deviceID, m.ReadingTypeName)
+	if err != nil {
+		log.Println("sensor lookup failed:", err)
+		return
+	}
+	err = s.insertSensorData(
+		ctx,
+		m.Time,
+		deviceID,
+		locationID,
+		sensorID,
+		readingTypeID,
+		m.Value,
+	)
+	if err != nil {
+		log.Println("insert failed:", err)
+	}
+}
+
+func (s *PostgresService) getDevice(ctx context.Context, identifier string) (int, int, error) {
 	var deviceID int
 	var locationID int
 	err := s.pool.QueryRow(ctx,
@@ -39,7 +91,7 @@ func (s *PostgresService) GetDevice(ctx context.Context, identifier string) (int
 	return deviceID, locationID, err
 }
 
-func (s *PostgresService) GetSensorForReading(ctx context.Context, deviceID int, readingType string) (int, int, error) {
+func (s *PostgresService) getSensorForReading(ctx context.Context, deviceID int, readingType string) (int, int, error) {
 	var sensorID int
 	var readingTypeID int
 	err := s.pool.QueryRow(ctx,
@@ -54,7 +106,7 @@ func (s *PostgresService) GetSensorForReading(ctx context.Context, deviceID int,
 	return sensorID, readingTypeID, err
 }
 
-func (s *PostgresService) InsertSensorData(
+func (s *PostgresService) insertSensorData(
 	ctx context.Context,
 	timestamp time.Time,
 	deviceID int,

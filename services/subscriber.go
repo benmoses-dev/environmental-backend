@@ -18,37 +18,41 @@ type Payload struct {
 
 type Subscriber struct {
 	cfg *Config
-	db  *PostgresService
 }
 
-func NewSubscriber(cfg *Config, db *PostgresService) *Subscriber {
+func NewSubscriber(cfg *Config) *Subscriber {
 	return &Subscriber{
 		cfg: cfg,
-		db:  db,
 	}
 }
 
-func (s *Subscriber) Start() {
-	opts := mqtt.NewClientOptions().AddBroker(s.cfg.MQTTBroker)
+func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage) {
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(s.cfg.MQTTBroker)
 	opts.SetClientID(s.cfg.MQTTClientID)
 	opts.SetUsername(s.cfg.MQTTUser)
 	opts.SetPassword(s.cfg.MQTTPass)
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: false, // true only if self-signed
+		InsecureSkipVerify: false,
 	}
 	opts.SetTLSConfig(tlsConfig)
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-	if token := client.Subscribe(s.cfg.MQTTTopic, s.cfg.MQTTQoS, s.handleMessage); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(s.cfg.MQTTTopic, s.cfg.MQTTQoS, func(c mqtt.Client, m mqtt.Message) {
+		s.handleMessage(c, m, messages)
+	}); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	log.Println("MQTT subscriber started on topic:", s.cfg.MQTTTopic)
+	<-ctx.Done()
+	log.Println("MQTT subscriber shutting down")
+	client.Disconnect(250)
 }
 
-func (s *Subscriber) handleMessage(c mqtt.Client, m mqtt.Message) {
-	// topic format: device/{identifier}/{readingtype}
+func (s *Subscriber) handleMessage(c mqtt.Client, m mqtt.Message, messages chan<- *SensorMessage) {
+	// The format is: device/{identifier}/{readingtype}
 	parts := strings.Split(m.Topic(), "/")
 	if len(parts) != 3 {
 		log.Println("invalid topic:", m.Topic())
@@ -63,29 +67,16 @@ func (s *Subscriber) handleMessage(c mqtt.Client, m mqtt.Message) {
 	}
 	timestamp := time.Unix(payload.Time, 0)
 	value := payload.Val
-	log.Printf("Got message: {time: %s, value: %f}", timestamp.String(), value)
-	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
-	defer cancel()
-	deviceID, locationID, err := s.db.GetDevice(ctx, deviceIdentifier)
-	if err != nil {
-		log.Println("device lookup failed:", err)
-		return
+	log.Printf("Got message: {type: %s, time: %s, value: %f}", readingTypeName, timestamp.String(), value)
+	msg := &SensorMessage{
+		Time:            timestamp,
+		Value:           value,
+		ReadingTypeName: readingTypeName,
+		Identifier:      deviceIdentifier,
 	}
-	sensorID, readingTypeID, err := s.db.GetSensorForReading(ctx, deviceID, readingTypeName)
-	if err != nil {
-		log.Println("sensor lookup failed:", err)
-		return
-	}
-	err = s.db.InsertSensorData(
-		ctx,
-		timestamp,
-		deviceID,
-		locationID,
-		sensorID,
-		readingTypeID,
-		value,
-	)
-	if err != nil {
-		log.Println("insert failed:", err)
+	select {
+	case messages <- msg:
+	default:
+		log.Println("message dropped, channel full")
 	}
 }
