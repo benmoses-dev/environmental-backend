@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS sensors (
     name TEXT NOT NULL
 );
 
-CREATE TYPE IF NOT EXISTS reading_type_enum AS ENUM ('temperature','humidity','pressure');
+CREATE TYPE reading_type_enum AS ENUM ('temperature','humidity','pressure');
 
 CREATE TABLE IF NOT EXISTS reading_types (
     id SERIAL PRIMARY KEY,

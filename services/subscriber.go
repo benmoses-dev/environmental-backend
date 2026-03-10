@@ -63,6 +63,7 @@ func (s *Subscriber) handleMessage(c mqtt.Client, m mqtt.Message) {
 	}
 	timestamp := time.Unix(payload.Time, 0)
 	value := payload.Val
+	log.Printf("Got message: {time: %s, value: %f}", timestamp.String(), value)
 	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
 	defer cancel()
 	deviceID, locationID, err := s.db.GetDevice(ctx, deviceIdentifier)
