@@ -58,11 +58,13 @@ func (s *PostgresService) handleMessage(m *SensorMessage) {
 	deviceID, locationID, err := s.getDevice(ctx, m.Identifier)
 	if err != nil {
 		log.Println("device lookup failed:", err)
+		log.Printf("Identifier: %s\n", m.Identifier)
 		return
 	}
 	sensorID, readingTypeID, err := s.getSensorForReading(ctx, deviceID, m.ReadingTypeName)
 	if err != nil {
 		log.Println("sensor lookup failed:", err)
+		log.Printf("DeviceID: %d, Reading: %s\n", deviceID, m.ReadingTypeName)
 		return
 	}
 	err = s.insertSensorData(

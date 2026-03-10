@@ -41,3 +41,9 @@ CREATE TABLE IF NOT EXISTS sensor_data (
 );
 
 SELECT create_hypertable('sensor_data','time', if_not_exists => TRUE);
+
+INSERT INTO locations(name) values ('Kitchen');
+INSERT INTO devices(identifier,location_id) values ('1', 1);
+INSERT INTO sensors(name) values ('BME280');
+INSERT INTO reading_types(name) values ('temperature'),('humidity'),('pressure');
+INSERT INTO device_sensor_readings(device_id,sensor_id,readingtype_id) values (1,1,1),(1,1,2),(1,1,3);
