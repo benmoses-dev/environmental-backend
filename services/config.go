@@ -17,6 +17,8 @@ type Config struct {
 	MQTTQoS       byte
 	InsertTimeout time.Duration
 	DBWorkers     int
+	HTTPHost      string
+	HTTPPort      string
 }
 
 func LoadConfig() *Config {
@@ -30,6 +32,8 @@ func LoadConfig() *Config {
 		MQTTQoS:       byte(getEnvAsInt("MQTT_QOS", 2)),
 		InsertTimeout: getEnvAsDuration("INSERT_TIMEOUT", 5*time.Second),
 		DBWorkers:     getEnvAsInt("DB_WORKERS", 5),
+		HTTPHost:      getEnv("HTTP_HOST", "127.0.0.1"),
+		HTTPPort:      getEnv("HTTP_PORT", "8080"),
 	}
 	return cfg
 }
