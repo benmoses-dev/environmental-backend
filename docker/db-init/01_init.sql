@@ -16,11 +16,9 @@ CREATE TABLE IF NOT EXISTS sensors (
     name TEXT NOT NULL
 );
 
-CREATE TYPE reading_type_enum AS ENUM ('temperature','humidity','pressure');
-
 CREATE TABLE IF NOT EXISTS reading_types (
     id SERIAL PRIMARY KEY,
-    name reading_type_enum NOT NULL
+    name TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS device_sensor_readings (
@@ -44,6 +42,6 @@ SELECT create_hypertable('sensor_data','time', if_not_exists => TRUE);
 
 INSERT INTO locations(name) values ('Kitchen');
 INSERT INTO devices(identifier,location_id) values ('1', 1);
-INSERT INTO sensors(name) values ('BME280');
-INSERT INTO reading_types(name) values ('temperature'),('humidity'),('pressure');
+INSERT INTO sensors(name) values ('BME280'),('BME680'),('SDS011'),('SCD41');
+INSERT INTO reading_types(name) values ('temperature'),('humidity'),('pressure'),('gas'),('pm2_5'),('pm10'),('co2');
 INSERT INTO device_sensor_readings(device_id,sensor_id,readingtype_id) values (1,1,1),(1,1,2),(1,1,3);

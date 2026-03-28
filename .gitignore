@@ -1,1 +1,2 @@
 /**/.env
+/docker/db-init/01_init.local.sql
