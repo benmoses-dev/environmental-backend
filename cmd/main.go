@@ -40,7 +40,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		subscriber.Start(ctx, messages)
+		subscriber.Start(ctx, messages, aggregates, &wg)
 	}()
 	log.Println("IoT ingestion service started")
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -26,7 +27,7 @@ func NewSubscriber(cfg *Config) *Subscriber {
 	}
 }
 
-func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage) {
+func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage, aggregates <-chan *AggregateMessage, wg *sync.WaitGroup) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(s.cfg.MQTTBroker)
 	opts.SetClientID(s.cfg.MQTTClientID)
@@ -46,6 +47,31 @@ func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage) 
 		log.Fatal(token.Error())
 	}
 	log.Println("MQTT subscriber started on topic:", s.cfg.MQTTTopic)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case aggregate := <-aggregates:
+				payload, err := json.Marshal(aggregate)
+				if err != nil {
+					log.Println("Marshal aggregate:", err)
+					continue
+				}
+				token := client.Publish(
+					aggregate.Name,
+					s.cfg.MQTTQoS,
+					true,
+					payload,
+				)
+				if token.Wait() && token.Error() != nil {
+					log.Println("Publish aggregate:", token.Error())
+				}
+			}
+		}
+	}()
 	<-ctx.Done()
 	log.Println("MQTT subscriber shutting down")
 	client.Disconnect(250)
