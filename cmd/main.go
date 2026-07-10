@@ -3,14 +3,11 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
-	"github.com/benmoses-dev/environmental-backend/api"
 	"github.com/benmoses-dev/environmental-backend/services"
 )
 
@@ -25,14 +22,6 @@ func logConfig(cfg *services.Config) {
 func main() {
 	cfg := services.LoadConfig()
 	logConfig(cfg)
-
-	router := api.SetupRouter()
-	server := &http.Server{
-		Addr:         cfg.HTTPHost + ":" + cfg.HTTPPort,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
 
 	messages := make(chan *services.SensorMessage, 100)
 
@@ -54,27 +43,9 @@ func main() {
 	}()
 	log.Println("IoT ingestion service started")
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		log.Println("The server is now running at " + server.Addr)
-		err := server.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Println("Server error: " + err.Error())
-			os.Exit(1)
-		}
-	}()
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	<-sigs
-
-	log.Println("Shutting down HTTP server")
-	err := server.Close()
-	if err != nil {
-		log.Println("Server shutdown failed: " + err.Error())
-	}
-	log.Println("Server stopped successfully")
 
 	log.Println("Shutting down IoT ingestion service")
 	cancel()
