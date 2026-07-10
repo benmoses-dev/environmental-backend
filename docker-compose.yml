@@ -35,8 +35,6 @@ services:
       MQTT_TOPIC: ${MQTT_TOPIC}
       MQTT_QOS: ${MQTT_QOS}
       INSERT_TIMEOUT: ${INSERT_TIMEOUT}
-      HTTP_HOST: ${HTTP_HOST}
-      HTTP_PORT: ${HTTP_PORT}
       DB_WORKERS: ${DB_WORKERS}
     restart: unless-stopped
     networks:
