@@ -61,7 +61,7 @@ func (s *PostgresService) Start(ctx context.Context, aggregates chan<- *Aggregat
 				default:
 					s.logAvgTemp(aggregates)
 				}
-				time.Sleep(10 * time.Minute)
+				time.Sleep(time.Duration(s.cfg.AggregateWindow) * time.Minute)
 			}
 		}()
 	}
