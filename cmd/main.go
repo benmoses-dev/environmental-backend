@@ -24,6 +24,7 @@ func main() {
 	logConfig(cfg)
 
 	messages := make(chan *services.SensorMessage, 100)
+	aggregates := make(chan *services.AggregateMessage, 100)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -35,7 +36,7 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	db.Start(ctx, messages, &wg)
+	db.Start(ctx, aggregates, messages, &wg)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

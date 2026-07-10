@@ -9,6 +9,12 @@ type SensorMessage struct {
 	Identifier      string
 }
 
+type AggregateMessage struct {
+	Time  time.Time
+	Value float64
+	Name  string
+}
+
 type Device struct {
 	ID         int
 	Identifier string

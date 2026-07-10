@@ -31,7 +31,7 @@ func (s *PostgresService) Close() {
 	s.pool.Close()
 }
 
-func (s *PostgresService) Start(ctx context.Context, messages <-chan *SensorMessage, wg *sync.WaitGroup) {
+func (s *PostgresService) Start(ctx context.Context, aggregates chan<- *AggregateMessage, messages <-chan *SensorMessage, wg *sync.WaitGroup) {
 	numWorkers := s.cfg.DBWorkers
 	wg.Add(numWorkers)
 	for i := 0; i < numWorkers; i++ {
@@ -50,6 +50,54 @@ func (s *PostgresService) Start(ctx context.Context, messages <-chan *SensorMess
 			}
 		}()
 	}
+	wg.Add(1)
+	for i := 0; i < 1; i++ {
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					s.logAvgTemp(aggregates)
+				}
+				time.Sleep(10 * time.Minute)
+			}
+		}()
+	}
+}
+
+func (s *PostgresService) logAvgTemp(aggregates chan<- *AggregateMessage) {
+	avgTemp, err := s.getAvgTemp()
+	timestamp := time.Now()
+	if err != nil {
+		log.Println("Average temperature lookup failed:", err)
+		return
+	}
+	log.Printf("Got aggregate: {time: %s, value: %f}", timestamp.String(), avgTemp)
+	msg := &AggregateMessage{
+		Time:  timestamp,
+		Value: avgTemp,
+		Name:  "avg_temp",
+	}
+	select {
+	case aggregates <- msg:
+	default:
+		log.Println("Aggregate dropped, channel full")
+	}
+}
+
+func (s *PostgresService) getAvgTemp() (float64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
+	defer cancel()
+	var temp float64
+	err := s.pool.QueryRow(ctx,
+		`SELECT AVG(value) as avg_temp
+		 FROM sensor_data
+         JOIN reading_types ON sensor_data.readingtype_id = reading_types.id
+         WHERE sensor_data.time > NOW() - INTERVAL '$1 seconds'
+		 WHERE reading_types.name = temperature`, s.cfg.AggregateWindow*60).Scan(&temp)
+	return temp, err
 }
 
 func (s *PostgresService) handleMessage(m *SensorMessage) {
