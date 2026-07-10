@@ -95,8 +95,8 @@ func (s *PostgresService) getAvgTemp() (float64, error) {
 		`SELECT AVG(value) as avg_temp
 		 FROM sensor_data
          JOIN reading_types ON sensor_data.readingtype_id = reading_types.id
-         WHERE sensor_data.time > NOW() - INTERVAL '$1 seconds'
-		 WHERE reading_types.name = temperature`, s.cfg.AggregateWindow*60).Scan(&temp)
+         WHERE sensor_data.time > NOW() - ($1 * INTERVAL '1 minute')
+		 AND reading_types.name = 'temperature'`, s.cfg.AggregateWindow).Scan(&temp)
 	return temp, err
 }
 
