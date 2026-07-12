@@ -32,16 +32,14 @@ func main() {
 	db := services.NewPostgresService(cfg)
 	defer db.Close()
 
-	subscriber := services.NewSubscriber(cfg)
+	pub_sub := services.NewPubSub(cfg)
 
 	var wg sync.WaitGroup
 
 	db.Start(ctx, aggregates, messages, &wg)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		subscriber.Start(ctx, messages, aggregates, &wg)
-	}()
+	wg.Go(func() {
+		pub_sub.Start(ctx, messages, aggregates, &wg)
+	})
 	log.Println("IoT ingestion service started")
 
 	sigs := make(chan os.Signal, 1)

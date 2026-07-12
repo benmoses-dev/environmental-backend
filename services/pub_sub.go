@@ -17,17 +17,17 @@ type Payload struct {
 	Val  float64 `json:"val"`
 }
 
-type Subscriber struct {
+type PubSub struct {
 	cfg *Config
 }
 
-func NewSubscriber(cfg *Config) *Subscriber {
-	return &Subscriber{
+func NewPubSub(cfg *Config) *PubSub {
+	return &PubSub{
 		cfg: cfg,
 	}
 }
 
-func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage, aggregates <-chan *AggregateMessage, wg *sync.WaitGroup) {
+func (s *PubSub) Start(ctx context.Context, messages chan<- *SensorMessage, aggregates <-chan *AggregateMessage, wg *sync.WaitGroup) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(s.cfg.MQTTBroker)
 	opts.SetClientID(s.cfg.MQTTClientID)
@@ -47,9 +47,7 @@ func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage, 
 		log.Fatal(token.Error())
 	}
 	log.Println("MQTT subscriber started on topic:", s.cfg.MQTTTopic)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -71,13 +69,13 @@ func (s *Subscriber) Start(ctx context.Context, messages chan<- *SensorMessage, 
 				}
 			}
 		}
-	}()
+	})
 	<-ctx.Done()
 	log.Println("MQTT subscriber shutting down")
 	client.Disconnect(250)
 }
 
-func (s *Subscriber) handleMessage(c mqtt.Client, m mqtt.Message, messages chan<- *SensorMessage) {
+func (s *PubSub) handleMessage(c mqtt.Client, m mqtt.Message, messages chan<- *SensorMessage) {
 	// The format is: device/{identifier}/{readingtype}
 	parts := strings.Split(m.Topic(), "/")
 	if len(parts) != 3 {
