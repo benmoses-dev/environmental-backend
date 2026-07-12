@@ -68,12 +68,12 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.DatabaseTimeout)
 	defer cancel()
 	type AggregateReading struct {
-		Room        string
-		TypeName    string
-		HourAverage float64
-		DayAverage  float64
-		HourTime    time.Time
-		DayTime     time.Time
+		Room        string    `db:"room"`
+		TypeName    string    `db:"type"`
+		HourAverage float64   `db:"hour_average"`
+		DayAverage  float64   `db:"day_average"`
+		HourTime    time.Time `db:"hour_time"`
+		DayTime     time.Time `db:"day_time"`
 	}
 	rows, err := s.pool.Query(ctx,
 		`WITH hour_averages AS (
