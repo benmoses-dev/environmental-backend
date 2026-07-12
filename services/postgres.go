@@ -131,7 +131,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
 		hourlyMsg := &AggregateMessage{
 			Time:  reading.HourTime.Unix(),
 			Value: reading.HourAverage,
-			Name:  "locations/" + reading.Room + "/hourly",
+			Name:  "locations/" + reading.Room + "/hourly/" + reading.TypeName,
 		}
 		select {
 		case aggregates <- hourlyMsg:
@@ -141,7 +141,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
 		dailyMsg := &AggregateMessage{
 			Time:  reading.DayTime.Unix(),
 			Value: reading.DayAverage,
-			Name:  "locations/" + reading.Room + "/daily",
+			Name:  "locations/" + reading.Room + "/daily/" + reading.TypeName,
 		}
 		select {
 		case aggregates <- dailyMsg:
