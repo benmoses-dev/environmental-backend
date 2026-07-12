@@ -50,21 +50,17 @@ func (s *PostgresService) Start(ctx context.Context, aggregates chan<- *Aggregat
 			}
 		}()
 	}
-	wg.Add(1)
-	for i := 0; i < 1; i++ {
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					s.logAvgTemp(aggregates)
-				}
-				time.Sleep(time.Duration(s.cfg.AggregateWindow) * time.Minute)
+	wg.Go(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				s.logAvgTemp(aggregates)
 			}
-		}()
-	}
+			time.Sleep(time.Duration(s.cfg.AggregateWindow) * time.Minute)
+		}
+	})
 }
 
 func (s *PostgresService) logAvgTemp(aggregates chan<- *AggregateMessage) {
