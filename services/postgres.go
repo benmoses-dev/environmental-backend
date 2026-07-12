@@ -81,7 +81,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
         location_id,
         readingtype_id,
         AVG(value) as avg,
-        EXTRACT(EPOCH FROM MAX(time))::bigint AS hour_time
+        MAX(time) AS hour_time
         FROM sensor_data
         WHERE time > NOW() - INTERVAL '1 hour'
         GROUP BY location_id, readingtype_id
@@ -91,7 +91,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
         location_id,
         readingtype_id,
         AVG(value) as avg,
-        EXTRACT(EPOCH FROM MAX(time))::bigint AS day_time
+        MAX(time) AS day_time
         FROM sensor_data
         WHERE time > NOW() - INTERVAL '24 hours'
         GROUP BY location_id, readingtype_id
