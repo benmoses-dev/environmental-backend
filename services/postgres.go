@@ -105,8 +105,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
         hour_time,
         day_time
         FROM hour_averages
-        JOIN day_averages ON hour_averages.location_id = day_averages.location_id
-        AND hour_averages.readingtype_id = day_averages.readingtype_id
+        INNER JOIN day_averages USING (location_id, readingtype_id)
         )
         SELECT
         locations.name as room,
