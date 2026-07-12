@@ -85,7 +85,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
         FROM sensor_data
         WHERE time > NOW() - INTERVAL '1 hour'
         GROUP BY location_id, readingtype_id
-        )
+        ),
 		day_averages AS (
         SELECT
         location_id,
@@ -95,7 +95,7 @@ func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
         FROM sensor_data
         WHERE time > NOW() - INTERVAL '24 hours'
         GROUP BY location_id, readingtype_id
-        )
+        ),
         averages AS (
         SELECT
         location_id,
