@@ -34,8 +34,9 @@ services:
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID}
       MQTT_TOPIC: ${MQTT_TOPIC}
       MQTT_QOS: ${MQTT_QOS}
-      INSERT_TIMEOUT: ${INSERT_TIMEOUT}
+      DB_TIMEOUT: ${DB_TIMEOUT}
       DB_WORKERS: ${DB_WORKERS}
+      AGG_WINDOW_MINS: ${AGG_WINDOW_MINS}
     restart: unless-stopped
     networks:
       - environet
