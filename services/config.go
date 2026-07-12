@@ -15,7 +15,7 @@ type Config struct {
 	MQTTClientID    string
 	MQTTTopic       string
 	MQTTQoS         byte
-	InsertTimeout   time.Duration
+	DatabaseTimeout time.Duration
 	DBWorkers       int
 	AggregateWindow int
 }
@@ -29,7 +29,7 @@ func LoadConfig() *Config {
 		MQTTClientID:    getEnv("MQTT_CLIENT_ID", "backend"),
 		MQTTTopic:       getEnv("MQTT_TOPIC", "device/+/+"),
 		MQTTQoS:         byte(getEnvAsInt("MQTT_QOS", 2)),
-		InsertTimeout:   getEnvAsDuration("INSERT_TIMEOUT", 5*time.Second),
+		DatabaseTimeout: getEnvAsDuration("DB_TIMEOUT", 5*time.Second),
 		DBWorkers:       getEnvAsInt("DB_WORKERS", 5),
 		AggregateWindow: getEnvAsInt("AGG_WINDOW_MINS", 10),
 	}

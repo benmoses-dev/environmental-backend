@@ -10,9 +10,9 @@ type SensorMessage struct {
 }
 
 type AggregateMessage struct {
-	Time  time.Time `json:"time"`
-	Value float64   `json:"average"`
-	Name  string    `json:"-"`
+	Time  int64   `json:"time"`
+	Value float64 `json:"average"`
+	Name  string  `json:"-"`
 }
 
 type Device struct {

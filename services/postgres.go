@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,7 +16,7 @@ type PostgresService struct {
 }
 
 func NewPostgresService(cfg *Config) *PostgresService {
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.InsertTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.DatabaseTimeout)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -56,48 +57,103 @@ func (s *PostgresService) Start(ctx context.Context, aggregates chan<- *Aggregat
 			case <-ctx.Done():
 				return
 			default:
-				s.logAvgTemp(aggregates)
+				s.logAggregates(aggregates)
 			}
 			time.Sleep(time.Duration(s.cfg.AggregateWindow) * time.Minute)
 		}
 	})
 }
 
-func (s *PostgresService) logAvgTemp(aggregates chan<- *AggregateMessage) {
-	avgTemp, err := s.getAvgTemp()
-	timestamp := time.Now()
+func (s *PostgresService) logAggregates(aggregates chan<- *AggregateMessage) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.DatabaseTimeout)
+	defer cancel()
+	type AggregateReading struct {
+		Room        string
+		TypeName    string
+		HourAverage float64
+		DayAverage  float64
+		HourTime    time.Time
+		DayTime     time.Time
+	}
+	rows, err := s.pool.Query(ctx,
+		`WITH hour_averages AS (
+        SELECT
+        location_id,
+        readingtype_id,
+        AVG(value) as avg,
+        EXTRACT(EPOCH FROM MAX(time))::bigint AS hour_time
+        FROM sensor_data
+        WHERE time > NOW() - INTERVAL '1 hour'
+        GROUP BY location_id, readingtype_id
+        )
+		day_averages AS (
+        SELECT
+        location_id,
+        readingtype_id,
+        AVG(value) as avg,
+        EXTRACT(EPOCH FROM MAX(time))::bigint AS day_time
+        FROM sensor_data
+        WHERE time > NOW() - INTERVAL '24 hours'
+        GROUP BY location_id, readingtype_id
+        )
+        averages AS (
+        SELECT
+        location_id,
+        readingtype_id,
+        hour_averages.avg as hour_average,
+        day_averages.avg as day_average,
+        hour_time,
+        day_time
+        FROM hour_averages
+        JOIN day_averages ON hour_averages.location_id = day_averages.location_id
+        AND hour_averages.readingtype_id = day_averages.readingtype_id
+        )
+        SELECT
+        locations.name as room,
+        reading_types.name as type,
+        hour_average,
+        day_average,
+        hour_time,
+        day_time
+        FROM averages
+        JOIN locations ON locations.id = averages.location_id
+        JOIN reading_types ON reading_types.id = averages.readingtype_id`)
 	if err != nil {
-		log.Println("Average temperature lookup failed:", err)
+		log.Println("Aggregate lookup failed:", err)
 		return
 	}
-	log.Printf("Got aggregate: {time: %s, value: %f}", timestamp.String(), avgTemp)
-	msg := &AggregateMessage{
-		Time:  timestamp,
-		Value: avgTemp,
-		Name:  "avg_temp",
+	defer rows.Close()
+	readings, err := pgx.CollectRows(rows, pgx.RowToStructByName[AggregateReading])
+	if err != nil {
+		log.Println("Failed to collect rows:", err)
+		return
 	}
-	select {
-	case aggregates <- msg:
-	default:
-		log.Println("Aggregate dropped, channel full")
+	for _, reading := range readings {
+		hourlyMsg := &AggregateMessage{
+			Time:  reading.HourTime.Unix(),
+			Value: reading.HourAverage,
+			Name:  "locations/" + reading.Room + "/hourly",
+		}
+		select {
+		case aggregates <- hourlyMsg:
+		default:
+			log.Println("Hourly aggregate dropped, channel full")
+		}
+		dailyMsg := &AggregateMessage{
+			Time:  reading.DayTime.Unix(),
+			Value: reading.DayAverage,
+			Name:  "locations/" + reading.Room + "/daily",
+		}
+		select {
+		case aggregates <- dailyMsg:
+		default:
+			log.Println("Daily aggregate dropped, channel full")
+		}
 	}
-}
-
-func (s *PostgresService) getAvgTemp() (float64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
-	defer cancel()
-	var temp float64
-	err := s.pool.QueryRow(ctx,
-		`SELECT AVG(value) as avg_temp
-		 FROM sensor_data
-         JOIN reading_types ON sensor_data.readingtype_id = reading_types.id
-         WHERE sensor_data.time > NOW() - ($1 * INTERVAL '1 minute')
-		 AND reading_types.name = 'temperature'`, s.cfg.AggregateWindow).Scan(&temp)
-	return temp, err
 }
 
 func (s *PostgresService) handleMessage(m *SensorMessage) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.InsertTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.DatabaseTimeout)
 	defer cancel()
 	deviceID, locationID, err := s.getDevice(ctx, m.Identifier)
 	if err != nil {

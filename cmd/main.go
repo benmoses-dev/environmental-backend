@@ -16,7 +16,9 @@ func logConfig(cfg *services.Config) {
 	log.Printf("MQTT Broker: %s\n", cfg.MQTTBroker)
 	log.Printf("MQTT ClientID: %s\n", cfg.MQTTClientID)
 	log.Printf("MQTT QoS: %d\n", cfg.MQTTQoS)
-	log.Printf("Insert Timeout: %s\n", cfg.InsertTimeout)
+	log.Printf("DB Timeout: %s\n", cfg.DatabaseTimeout)
+	log.Printf("DB Workers: %d\n", cfg.DBWorkers)
+	log.Printf("Aggregate Frequency: %d\n", cfg.AggregateWindow)
 }
 
 func main() {
